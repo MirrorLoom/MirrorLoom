@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MirrorLoom: a daily mirror puzzle</title>
+<meta name="description" content="MirrorLoom is a calm daily logic puzzle. Fill every cell with a mirror so each light beam reaches its partner.">
+<style>
+:root{--bg:#f7f5f0;--card:#fff;--ink:#2b2a27;--mute:#6f6b63;--line:#d9d4c8;--lock:#e4ece6;--ok:#1d7a5a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1c1e;--card:#26282b;--ink:#ecebe7;--mute:#a29e96;--line:#3b3e43;--lock:#2e3b36;--ok:#5ac29a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1c1e;--card:#26282b;--ink:#ecebe7;--mute:#a29e96;--line:#3b3e43;--lock:#2e3b36;--ok:#5ac29a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:380px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:24px;font-weight:600;margin:0}
+.sub{color:var(--mute);font-size:14px;margin:2px 0 14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tab,.b{font:inherit;font-size:14px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tab{min-height:40px;padding:0 12px;margin-right:6px}
+.tab[aria-pressed="true"]{border-color:var(--ink);font-weight:600}
+.chip{font-size:13px;color:var(--mute)}
+svg{width:100%;display:block;touch-action:manipulation}
+svg text{font-family:system-ui,sans-serif}
+.cell{fill:var(--card);stroke:var(--line);stroke-width:1}
+.cell.l{fill:var(--lock)}
+.mir{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
+.ring{stroke:var(--ink);stroke-width:2.5}
+#st{font-size:14px;color:var(--mute);text-align:center;margin:12px 0;min-height:40px}
+#st.ok{color:var(--ok);font-weight:600}
+.btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+details{margin-top:18px;font-size:14px;color:var(--mute)}
+summary{cursor:pointer;min-height:32px}
+</style></head>
+<body><main>
+<h1>MirrorLoom</h1>
+<p class="sub" id="date"></p>
+<div class="row"><div id="tabs"></div><div class="chip" id="streak"></div></div>
+<svg id="g" viewBox="0 0 360 360" role="img" aria-label="Mirror puzzle grid"></svg>
+<p id="st"></p>
+<div class="btns">
+<button class="b" id="hint">Hint</button>
+<button class="b" id="clr">Clear</button>
+<button class="b" id="sol">Show solution</button>
+<button class="b" id="share" hidden>Share result</button>
+</div>
+<details><summary>How to play</summary>
+<p>Each colored dot has a partner with the same letter. Light leaves a dot in a straight line and bends at every mirror. Fill every cell with a mirror, / or \, so each beam reaches its partner. Tinted cells are locked. Tap a cell to cycle: empty, /, \. Every puzzle has exactly one solution, and a new set arrives each day.</p>
+<p>Your streak forgives one missed day.</p></details>
+</main>
+<script>
+var BANK={easy:[[4,"1111011110011011","3-7,10-14,11-15","0,1,4,7,9,10,11"],[4,"1001111111101010","8-11,14-15,1-2","2,4,5,6,10,12"],[4,"0101011010101011","3-14,4-5,6-7","4,5,6,7,13,14,15"],[4,"0100110101001110","12-13,6-11,0-1","2,5,6,8,11,13"],[4,"1101110111001110","1-5,2-8,12-13","0,9,11,13,15"],[4,"0000011000111001","1-14,12-13,5-10","0,3,5,6,7,10,11"],[4,"0001110000010111","0-1,3-12,5-13","3,6,8,10,13,14,15"]],medium:[[5,"0110000100001000101101010","13-14,4-15,7-12,0-3","2,4,10,12,13,15,17,18,21"],[5,"0101101110100000011110010","10-11,18-19,13-14,0-17","3,5,6,7,8,11,13,14,16,18,20"],[5,"0110101001010000001111101","8-9,2-15,10-13,0-7","2,8,11,12,17,19,21,22"],[5,"0110100111011111110000010","7-16,2-3,10-17,12-13","0,2,5,7,12,17,18,19,22,23,24"],[5,"0011100011111011110010010","0-3,4-5,10-11,15-16","2,3,9,12,14,17,18,19,22,23,24"],[5,"0110000100011110110101101","7-12,2-3,13-16,5-6","1,2,4,5,8,12,14,15,16"],[5,"0000100100100001111110100","0-19,3-4,8-9,17-18","1,2,9,12,13,15,17,18,21,23"]],hard:[[5,"0100101010010110100011000","15-18,2-19,1-14,0-7,16-17","2,4,13"],[5,"0001100000111010010101110","5-12,0-3,16-17,18-19,6-9","8,12,15,22"],[5,"0010010101001010000011000","3-4,16-17,5-8,14-19,11-18","3,11,18,24"],[5,"1000111100000010000010000","7-14,8-9,1-18,3-4,12-13","5,8,13,21"],[5,"0000001011110110001110000","8-17,9-10,12-19,3-4,13-14","0,1,2,5,17"],[5,"0011110001111101101001010","6-7,5-14,2-3,9-10,4-15","4,10,13,14,16"],[5,"0011110110000111101110011","13-18,4-9,5-8,0-1,12-17","8,11,12,13,22"]]};
+var COL=['#D85A30','#1D9E75','#378ADD','#BA7517','#8A5CC2'],EM=['🟧','🟩','🟦','🟨','🟪'];
+var LV=['easy','medium','hard'],NM={easy:'Easy',medium:'Medium',hard:'Hard'};
+var now=new Date(),DAY=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/864e5);
+var store={streak:0,best:0,last:-9,done:{}};
+try{var s0=JSON.parse(localStorage.getItem('lp1'));if(s0&&s0.done)store=s0}catch(e){}
+function save(){try{localStorage.setItem('lp1',JSON.stringify(store))}catch(e){}}
+function $(i){return document.getElementById(i)}
+var M=34,lv,n,S,SZ,sol,g,lk,pairs,hints,peeked,solved;
+function pt(i){return[['L','T','R','B'][Math.floor(i/n)],i%n]}
+function load(l){
+lv=l;var p=BANK[l][DAY%7];n=p[0];S=n===4?72:58;SZ=2*M+n*S;sol=[];g=[];lk={};
+for(var r=0;r<n;r++){sol.push([]);g.push([]);for(var c=0;c<n;c++){sol[r].push(p[1][r*n+c]==='1'?'/':'\\');g[r].push('.')}}
+p[3].split(',').forEach(function(k){k=+k;lk[k]=1;g[Math.floor(k/n)][k%n]=sol[Math.floor(k/n)][k%n]});
+pairs=p[2].split(',').map(function(x,i){var a=x.split('-');return{id:'ABCDE'[i],col:COL[i],em:EM[i],a:pt(+a[0]),b:pt(+a[1])}});
+hints=0;peeked=false;solved=!!store.done[DAY+':'+l];
+if(solved)g=sol.map(function(r){return r.slice()});
+render();
+}
+function dot(sd,i){var m=M+i*S+S/2,e=M+n*S+16;return sd==='L'?[M-16,m]:sd==='T'?[m,M-16]:sd==='R'?[e,m]:[m,e]}
+function trace(sd,i){
+var r,c,dr,dc,t;
+if(sd==='L'){r=i;c=0;dr=0;dc=1}else if(sd==='T'){r=0;c=i;dr=1;dc=0}else if(sd==='R'){r=i;c=n-1;dr=0;dc=-1}else{r=n-1;c=i;dr=-1;dc=0}
+var pts=[dot(sd,i)];
+while(r>=0&&r<n&&c>=0&&c<n){
+var ch=g[r][c];
+if(ch==='/'){t=dr;dr=-dc;dc=-t;pts.push([M+c*S+S/2,M+r*S+S/2])}
+else if(ch==='\\'){t=dr;dr=dc;dc=t;pts.push([M+c*S+S/2,M+r*S+S/2])}
+r+=dr;c+=dc;
+}
+var ex=r<0?['T',c]:r>=n?['B',c]:c<0?['L',r]:['R',r];
+pts.push(dot(ex[0],ex[1]));
+return{pts:pts,ex:ex};
+}
+function render(){
+var s='',r,c,empty=0,done=0,k;
+$('g').setAttribute('viewBox','0 0 '+SZ+' '+SZ);
+for(r=0;r<n;r++)for(c=0;c<n;c++){
+if(g[r][c]==='.')empty++;
+s+='<rect class="cell'+(lk[r*n+c]?' l':'')+'" x="'+(M+c*S+2)+'" y="'+(M+r*S+2)+'" width="'+(S-4)+'" height="'+(S-4)+'" rx="8"/>';
+}
+var res=pairs.map(function(p){var t=trace(p.a[0],p.a[1]);var ok=t.ex[0]===p.b[0]&&t.ex[1]===p.b[1];if(ok)done++;return{p:p,t:t,ok:ok}});
+res.forEach(function(x){
+var d=x.t.pts.map(function(q,i){return(i?'L':'M')+q[0]+' '+q[1]}).join(' ');
+s+='<path d="'+d+'" fill="none" stroke="'+x.p.col+'" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity="'+(x.ok?1:0.5)+'"/>';
+});
+for(r=0;r<n;r++)for(c=0;c<n;c++){
+var ch=g[r][c],x=M+c*S+S/2,y=M+r*S+S/2,h=S*0.3;
+if(ch==='/')s+='<line class="mir" x1="'+(x-h)+'" y1="'+(y+h)+'" x2="'+(x+h)+'" y2="'+(y-h)+'"/>';
+if(ch==='\\')s+='<line class="mir" x1="'+(x-h)+'" y1="'+(y-h)+'" x2="'+(x+h)+'" y2="'+(y+h)+'"/>';
+}
+res.forEach(function(x){[x.p.a,x.p.b].forEach(function(e){
+var d=dot(e[0],e[1]);
+s+='<circle cx="'+d[0]+'" cy="'+d[1]+'" r="10" fill="'+x.p.col+'"'+(x.ok?' class="ring"':'')+'/>';
+s+='<text x="'+d[0]+'" y="'+(d[1]+4)+'" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">'+x.p.id+'</text>';
+})});
+for(r=0;r<n;r++)for(c=0;c<n;c++)if(!lk[r*n+c])s+='<rect data-r="'+r+'" data-c="'+c+'" x="'+(M+c*S)+'" y="'+(M+r*S)+'" width="'+S+'" height="'+S+'" fill="transparent" style="cursor:pointer"/>';
+$('g').innerHTML=s;
+var won=done===pairs.length&&empty===0;
+if(won&&!solved){solved=true;if(!peeked)record()}
+var st=$('st');st.className=won&&!peeked?'ok':'';
+st.textContent=won?(peeked?'Solution shown. This one won’t count toward your streak.':'Solved. Come back tomorrow for a new puzzle.'):done+' of '+pairs.length+' beams connected · '+empty+' cells empty';
+$('share').hidden=!(won&&!peeked&&store.done[DAY+':'+lv]);
+$('hint').disabled=won;
+var tb='';LV.forEach(function(l){tb+='<button class="tab" data-l="'+l+'" aria-pressed="'+(l===lv)+'">'+NM[l]+(store.done[DAY+':'+l]?' ✓':'')+'</button>'});
+$('tabs').innerHTML=tb;
+$('streak').textContent='Streak '+store.streak+' · Best '+store.best;
+$('date').textContent=now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+' · today’s puzzles';
+}
+function record(){
+store.done[DAY+':'+lv]=1;
+if(store.last!==DAY){store.streak=(DAY-store.last<=2)?store.streak+1:1;store.last=DAY;store.best=Math.max(store.best,store.streak)}
+save();
+}
+$('g').addEventListener('click',function(e){
+var t=e.target;
+if(t.dataset&&t.dataset.r!==undefined){
+var r=+t.dataset.r,c=+t.dataset.c,v=g[r][c];
+g[r][c]=v==='.'?'/':v==='/'?'\\':'.';
+render();
+}
+});
+$('tabs').addEventListener('click',function(e){var l=e.target.dataset&&e.target.dataset.l;if(l)load(l)});
+$('clr').addEventListener('click',function(){
+for(var r=0;r<n;r++)for(var c=0;c<n;c++)g[r][c]=lk[r*n+c]?sol[r][c]:'.';
+render();
+});
+$('sol').addEventListener('click',function(){
+if(!solved)peeked=true;
+g=sol.map(function(r){return r.slice()});render();
+});
+$('hint').addEventListener('click',function(){
+var bad=[];
+for(var r=0;r<n;r++)for(var c=0;c<n;c++)if(!lk[r*n+c]&&g[r][c]!==sol[r][c])bad.push([r,c]);
+if(!bad.length)return;
+var q=bad[Math.floor(Math.random()*bad.length)];
+g[q[0]][q[1]]=sol[q[0]][q[1]];lk[q[0]*n+q[1]]=1;hints++;render();
+});
+$('share').addEventListener('click',function(){
+var txt='MirrorLoom · '+now.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+NM[lv]+'\n'+pairs.map(function(p){return p.em}).join('')+' solved'+(hints?' with '+hints+' hint'+(hints>1?'s':''):'')+'\nStreak '+store.streak;
+var b=$('share');
+try{navigator.clipboard.writeText(txt).then(function(){b.textContent='Copied'},function(){b.textContent='Copy not allowed'})}catch(e){b.textContent='Copy not allowed'}
+setTimeout(function(){b.textContent='Share result'},2000);
+});
+load('easy');
+</script></body></html>
